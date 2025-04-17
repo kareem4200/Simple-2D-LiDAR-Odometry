@@ -1,9 +1,11 @@
 
 #include "lidar_odometry/lidar_odometry.hpp"
 
+#include <boost/make_shared.hpp>
+
 LidarOdometry::LidarOdometry(double max_correspondence_distance, double transformation_epsilon, double maximum_iterations)
 {
-    gicp = std::make_shared<pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ>>();
+    gicp = boost::make_shared<pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ>>();
 
     gicp->setMaxCorrespondenceDistance(max_correspondence_distance);
     gicp->setTransformationEpsilon(transformation_epsilon);
@@ -54,8 +56,8 @@ Eigen::Matrix4d LidarOdometry::get_transform_matrix(ScanDataPtr source, ScanData
 {
     pcl::PointCloud<pcl::PointXYZ>::Ptr align(new pcl::PointCloud<pcl::PointXYZ>);
 
-    gicp->setInputSource(std::make_shared<pcl::PointCloud<pcl::PointXYZ>>(source->point_cloud));
-    gicp->setInputTarget(std::make_shared<pcl::PointCloud<pcl::PointXYZ>>(target->point_cloud));
+    gicp->setInputSource(boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>(source->point_cloud));
+    gicp->setInputTarget(boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>(target->point_cloud));
     gicp->align(*align);
 
     Eigen::Matrix4f src2tgt = gicp->getFinalTransformation();
