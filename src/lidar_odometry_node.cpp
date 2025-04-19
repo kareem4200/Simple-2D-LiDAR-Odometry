@@ -6,6 +6,8 @@
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "lidar_odometry/lidar_odometry.hpp"
+#include <tf2_ros/transform_broadcaster.h>
+
 
 class LidarOdometryNode : public rclcpp::Node
 {
@@ -42,11 +44,13 @@ class LidarOdometryNode : public rclcpp::Node
       scan_subscriber = this->create_subscription<sensor_msgs::msg::LaserScan>(
         scan_topic_name, rclcpp::SensorDataQoS(), std::bind(&LidarOdometryNode::scan_callback, this, std::placeholders::_1)
       );
+      tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
     }
 
     private:
       rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher;
       rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscriber;
+      std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
       std::shared_ptr<LidarOdometry> lidar_odometry_ptr;
 
       void parameter_initilization() {
@@ -73,6 +77,9 @@ class LidarOdometryNode : public rclcpp::Node
         auto state = lidar_odometry_ptr->get_state();
         std::string fixed_id = "odom";
 
+        bool publish_odom_tf_ = true;
+        std::string child_frame_id_ = "base_footprint";
+
         nav_msgs::msg::Odometry odom_msg;
 
         odom_msg.header.frame_id = fixed_id;
@@ -83,6 +90,25 @@ class LidarOdometryNode : public rclcpp::Node
         odom_msg.twist.twist = Eigen::toMsg(state->velocity);
 
         odom_publisher->publish(odom_msg);
+
+        if (publish_odom_tf_) {
+          geometry_msgs::msg::TransformStamped odom_tf;
+          odom_tf.header.stamp = this->get_clock()->now();
+          odom_tf.header.frame_id = fixed_id;
+          odom_tf.child_frame_id = child_frame_id_;
+
+          odom_tf.transform.translation.x = state->pose.translation().x();
+          odom_tf.transform.translation.y = state->pose.translation().y();
+          odom_tf.transform.translation.z = state->pose.translation().z();
+
+          Eigen::Quaterniond q(state->pose.rotation());
+          odom_tf.transform.rotation.x = q.x();
+          odom_tf.transform.rotation.y = q.y();
+          odom_tf.transform.rotation.z = q.z();
+          odom_tf.transform.rotation.w = q.w();
+
+          tf_broadcaster_->sendTransform(odom_tf);
+        }
       }
 
 };
